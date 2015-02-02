@@ -1,0 +1,15 @@
+c:\users\руслан\documents\visual studio 2013\Projects\ServerNetworkFileManager\ServerNetworkFileManager\bin\Debug\ServerNetworkFileManager.exe.config
+c:\users\руслан\documents\visual studio 2013\Projects\ServerNetworkFileManager\ServerNetworkFileManager\bin\Debug\ServerNetworkFileManager.exe
+c:\users\руслан\documents\visual studio 2013\Projects\ServerNetworkFileManager\ServerNetworkFileManager\bin\Debug\ServerNetworkFileManager.pdb
+c:\users\руслан\documents\visual studio 2013\Projects\ServerNetworkFileManager\ServerNetworkFileManager\obj\Debug\ServerNetworkFileManager.csprojResolveAssemblyReference.cache
+c:\users\руслан\documents\visual studio 2013\Projects\ServerNetworkFileManager\ServerNetworkFileManager\obj\Debug\ServerNetworkFileManager.exe
+c:\users\руслан\documents\visual studio 2013\Projects\ServerNetworkFileManager\ServerNetworkFileManager\obj\Debug\ServerNetworkFileManager.pdb
+C:\github\ServerNetworkFileManager\ServerNetworkFileManager\bin\Debug\ServerNetworkFileManager.exe.config
+C:\github\ServerNetworkFileManager\ServerNetworkFileManager\obj\Debug\ServerNetworkFileManager.exe
+C:\github\ServerNetworkFileManager\ServerNetworkFileManager\obj\Debug\ServerNetworkFileManager.pdb
+D:\Проекты\ServerNetworkFileManager\ServerNetworkFileManager\bin\Debug\ServerNetworkFileManager.exe.config
+D:\Проекты\ServerNetworkFileManager\ServerNetworkFileManager\obj\Debug\ServerNetworkFileManager.exe
+D:\Проекты\ServerNetworkFileManager\ServerNetworkFileManager\obj\Debug\ServerNetworkFileManager.pdb
+D:\Проекты\ServerNetworkFileManager\ServerNetworkFileManager\bin\Debug\ServerNetworkFileManager.exe
+D:\Проекты\ServerNetworkFileManager\ServerNetworkFileManager\bin\Debug\ServerNetworkFileManager.pdb
+D:\Проекты\ServerNetworkFileManager\ServerNetworkFileManager\obj\Debug\ServerNetworkFileManager.csprojResolveAssemblyReference.cache
