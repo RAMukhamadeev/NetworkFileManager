@@ -13,3 +13,9 @@ D:\Проекты\ServerNetworkFileManager\ServerNetworkFileManager\obj\Debug\Se
 D:\Проекты\ServerNetworkFileManager\ServerNetworkFileManager\bin\Debug\ServerNetworkFileManager.exe
 D:\Проекты\ServerNetworkFileManager\ServerNetworkFileManager\bin\Debug\ServerNetworkFileManager.pdb
 D:\Проекты\ServerNetworkFileManager\ServerNetworkFileManager\obj\Debug\ServerNetworkFileManager.csprojResolveAssemblyReference.cache
+D:\GitHub\NetworkFileManager\ServerNetworkFileManager\bin\Debug\ServerNetworkFileManager.exe.config
+D:\GitHub\NetworkFileManager\ServerNetworkFileManager\obj\Debug\ServerNetworkFileManager.exe
+D:\GitHub\NetworkFileManager\ServerNetworkFileManager\obj\Debug\ServerNetworkFileManager.pdb
+D:\GitHub\NetworkFileManager\ServerNetworkFileManager\obj\Debug\ServerNetworkFileManager.csprojResolveAssemblyReference.cache
+D:\GitHub\NetworkFileManager\ServerNetworkFileManager\bin\Debug\ServerNetworkFileManager.exe
+D:\GitHub\NetworkFileManager\ServerNetworkFileManager\bin\Debug\ServerNetworkFileManager.pdb
