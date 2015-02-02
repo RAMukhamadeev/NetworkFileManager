@@ -1,0 +1,17 @@
+﻿connect program: winSCP
+user: root
+password: 4deMar1
+ServerIP: 172.16.1.24
+
+//for MySQL
+ServerIP: 172.16.1.24
+User ID: user4
+Password: user4pass
+Database: db_wafers
+
+//консоль Linux CentOS
+вывести список всех процессов: ps -e | less
+найти процесс с названием "моно": ps | grep mono
+уничтожить процесс: kill 'номер процесса'
+компиляция исходного кода на "моно": mcs 'путь к файлу'
+запуск приложения на "моно": mono 'путь к файлу'
