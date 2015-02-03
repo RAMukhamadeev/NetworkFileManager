@@ -86,8 +86,8 @@ namespace SDKNetworkFileManager
         private string GetCurrentMachineIP()
         {
             String host = System.Net.Dns.GetHostName();
-            // use GetHostEntry instead
-            System.Net.IPAddress ip = System.Net.Dns.GetHostByName(host).AddressList[0];
+            //System.Net.IPAddress ip = System.Net.Dns.GetHostEntry(host).AddressList[0];
+            IPAddress ip = Dns.GetHostByName(host).AddressList[0];
             return ip.ToString();
         }
 
@@ -118,7 +118,7 @@ namespace SDKNetworkFileManager
         {
             byte[] downBuffer = new byte[_countOfBytesInBuffer];
             int bytesSize = networkStream.Read(downBuffer, 0, _countOfBytesInBuffer);
-            string str = System.Text.Encoding.UTF8.GetString(downBuffer, 0, bytesSize);
+            string str = Encoding.Unicode.GetString(downBuffer, 0, bytesSize);
             str = str.Substring(0, str.IndexOf('\n'));
 
             return str;
@@ -134,7 +134,7 @@ namespace SDKNetworkFileManager
                 string fileName = GetStringOfNextPackage();
 
                 // зная имя файла создаем его и готовим для записи содержимого
-                savedFile = new FileStream(_pathToSaveFolder + fileName, FileMode.Create, FileAccess.Write, FileShare.ReadWrite);
+                savedFile = new FileStream(_pathToSaveFolder + fileName, FileMode.Create);
 
                 // получаем размер файла
                 long fileSize = Convert.ToInt64(GetStringOfNextPackage());
@@ -144,7 +144,7 @@ namespace SDKNetworkFileManager
                 int bytesSize;
                 byte[] downBuffer = new byte[_countOfBytesInBuffer];
                 // считываем содержимое файла по пакетам и записываем его в локальный файл
-                while ((bytesSize = networkStream.Read(downBuffer, 0, downBuffer.Length)) > 0)
+                while ((bytesSize = networkStream.Read(downBuffer, 0, _countOfBytesInBuffer)) > 0)
                 {
                     savedFile.Write(downBuffer, 0, bytesSize);
                 }
@@ -171,7 +171,6 @@ namespace SDKNetworkFileManager
                     savedFile.Flush();
                     savedFile.Close();
                     savedFile.Dispose();
-                    savedFile = null;
                 }
             }
         }
@@ -275,12 +274,10 @@ namespace SDKNetworkFileManager
                 networkStream.Flush();
                 networkStream.Close();
                 networkStream.Dispose();
-                networkStream = null;
             }
             if (client != null)
             {
                 client.Close();
-                client = null;
             }
         }
 
@@ -357,7 +354,6 @@ namespace SDKNetworkFileManager
         private string GetCurrentMachineIP()
         {
             String host = System.Net.Dns.GetHostName();
-            // use GetHostEntry instead
             System.Net.IPAddress ip = System.Net.Dns.GetHostByName(host).AddressList[0];
             return ip.ToString();
         }
@@ -375,7 +371,7 @@ namespace SDKNetworkFileManager
 
         private void SendStringInPackage(string str)
         {
-            byte[] byteFileName = System.Text.Encoding.UTF8.GetBytes((str + "\n").ToCharArray());
+            byte[] byteFileName = Encoding.Unicode.GetBytes((str + "\n").ToCharArray());
             byte[] toWriteName = new byte[_countOfBytesInBuffer];
             byteFileName.CopyTo(toWriteName, 0);
             remoteStream.Write(toWriteName, 0, _countOfBytesInBuffer);
@@ -444,7 +440,6 @@ namespace SDKNetworkFileManager
                     fileStream.Flush();
                     fileStream.Close();
                     fileStream.Dispose();
-                    fileStream = null;
                 }
 
                 // безопасно завершаем соединение
@@ -565,10 +560,10 @@ namespace SDKNetworkFileManager
 
         static void Main(string[] args)
         {
-            NetworkSender.ReleaseTesting();
+            //NetworkSender.ReleaseTesting();
 
-            //Thread listenThread = new Thread(StartToListen);
-            //listenThread.Start();
+            Thread listenThread = new Thread(StartToListen);
+            listenThread.Start();
 
             //NetworkSender.ReleaseRequestTesting();
         }
