@@ -98,14 +98,14 @@ namespace SDKNetworkFileManager
             else
                 return GetCurrentMachineIP();
         }
-        
+
         /// <summary>
         /// Записывает события в лог
         /// </summary>
         /// <param name="statusMessage">Строка с сообщением</param>
         private void UpdateStatus(string statusMessage)
         {
-            if (_needToWriteToConsole) 
+            if (_needToWriteToConsole)
                 Console.WriteLine(statusMessage);
             _logMas.Add(statusMessage);
         }
@@ -142,24 +142,7 @@ namespace SDKNetworkFileManager
                 networkStream = tcpClient.GetStream();
                 UpdateStatus("The server has received the stream");
 
-                // получаем имя получаемого файла с расширением
-                string fileName = GetStringFromNetPackage(networkStream);
-
-                // зная имя файла создаем его и готовим для записи содержимого
-                fileStream = new FileStream(_pathToSaveFolder + fileName, FileMode.Create);
-
-                // получаем размер файла
-                long fileSize = Convert.ToInt64(GetStringFromNetPackage(networkStream));
-
-                UpdateStatus("Receiving file '" + fileName + "' (" + fileSize + " bytes)");
-
-                // считываем содержимое файла по пакетам и записываем его в локальный файл
-                int bytesSize;
-                byte[] downBuffer = new byte[_countOfBytesInBuffer];
-                while ((bytesSize = networkStream.Read(downBuffer, 0, downBuffer.Length)) > 0)
-                {
-                    fileStream.Write(downBuffer, 0, bytesSize);
-                }
+                fileStream = LoadFileFromNet(networkStream);
             }
             catch (Exception ex)
             {
@@ -205,6 +188,29 @@ namespace SDKNetworkFileManager
                 if (_needToLongTimeRecieve)
                     StartReceiving();
             }
+        }
+
+        private FileStream LoadFileFromNet(NetworkStream networkStream)
+        {
+            // получаем имя получаемого файла с расширением
+            string fileName = GetStringFromNetPackage(networkStream);
+
+            // зная имя файла создаем его и готовим для записи содержимого
+            FileStream fileStream = new FileStream(_pathToSaveFolder + fileName, FileMode.Create);
+
+            // получаем размер файла
+            long fileSize = Convert.ToInt64(GetStringFromNetPackage(networkStream));
+
+            UpdateStatus("Receiving file '" + fileName + "' (" + fileSize + " bytes)");
+
+            // считываем содержимое файла по пакетам и записываем его в локальный файл
+            int bytesSize;
+            byte[] downBuffer = new byte[_countOfBytesInBuffer];
+            while ((bytesSize = networkStream.Read(downBuffer, 0, _countOfBytesInBuffer)) > 0)
+            {
+                fileStream.Write(downBuffer, 0, bytesSize);
+            }
+            return fileStream;
         }
 
         private string GetStringFromNetPackage(NetworkStream networkStream)
@@ -311,20 +317,22 @@ namespace SDKNetworkFileManager
                 UpdateStatus("Sending file information");
                 networkStream = _tcpClient.GetStream();
 
-                // открываем отправляемый файл
-                fileStream = new FileStream(pathToFile, FileMode.Open, FileAccess.Read);
-
                 // объект для получения информации о передаваемом файле
                 FileInfo fInfo = new FileInfo(pathToFile);
 
-                // передаем по сети название файла в виде массива байтов (1 пакет)
+                // передаем управляющий пакет
+                // SendStringInNetPackage(networkStream, "command: load file");
+
+                // передаем по сети название файла в виде массива байтов
                 SendStringInNetPackage(networkStream, fInfo.Name);
 
-                // передаем по сети размер файла в байтах в виде массива байтов (2 пакет)
+                // передаем по сети размер файла в байтах в виде массива байтов
                 SendStringInNetPackage(networkStream, fInfo.Length.ToString());
 
                 UpdateStatus("Sending the file '" + fInfo.Name + "'");
 
+                // открываем отправляемый файл
+                fileStream = new FileStream(pathToFile, FileMode.Open, FileAccess.Read);
                 // передаем содержание файла по сети в виде последовательности сетевых пакетов
                 int bytesSize = 0;
                 byte[] downBuffer = new byte[_countOfBytesInBuffer];
@@ -420,14 +428,10 @@ namespace SDKNetworkFileManager
 
         static void Main(string[] args)
         {
-            NetworkSender.ReleaseTesting();
-
+             NetworkSender.ReleaseTesting();
+             
             //Thread backListen = new Thread(StartListen);
             //backListen.Start();
-
-            //AsyncNetworkReciever anr = new AsyncNetworkReciever();
-            //anr.initListener();
-            //anr.StartAsyncReceiving();
         }
     }
 }
