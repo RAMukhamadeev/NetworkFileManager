@@ -142,30 +142,20 @@ namespace SDKNetworkFileManager
                 networkStream = tcpClient.GetStream();
                 UpdateStatus("The server has received the stream");
 
-                // буфер для чтения по сетевому потоку и текущий размер буфера в байтах
-                byte[] downBuffer;
-                int bytesSize;
-
                 // получаем имя получаемого файла с расширением
-                downBuffer = new byte[_countOfBytesInBuffer];
-                bytesSize = networkStream.Read(downBuffer, 0, _countOfBytesInBuffer);
-                string fileName = System.Text.Encoding.UTF8.GetString(downBuffer, 0, bytesSize);
-                fileName = fileName.Substring(0, fileName.IndexOf('\n'));
+                string fileName = GetStringFromNetPackage(networkStream);
 
                 // зная имя файла создаем его и готовим для записи содержимого
                 fileStream = new FileStream(_pathToSaveFolder + fileName, FileMode.Create);
 
                 // получаем размер файла
-                downBuffer = new byte[_countOfBytesInBuffer];
-                bytesSize = networkStream.Read(downBuffer, 0, _countOfBytesInBuffer);
-                string strFileSize = System.Text.Encoding.UTF8.GetString(downBuffer, 0, bytesSize);
-                strFileSize = strFileSize.Substring(0, strFileSize.IndexOf('\n'));
-                long fileSize = Convert.ToInt64(strFileSize);
+                long fileSize = Convert.ToInt64(GetStringFromNetPackage(networkStream));
 
                 UpdateStatus("Receiving file '" + fileName + "' (" + fileSize + " bytes)");
 
                 // считываем содержимое файла по пакетам и записываем его в локальный файл
-                downBuffer = new byte[_countOfBytesInBuffer];
+                int bytesSize;
+                byte[] downBuffer = new byte[_countOfBytesInBuffer];
                 while ((bytesSize = networkStream.Read(downBuffer, 0, downBuffer.Length)) > 0)
                 {
                     fileStream.Write(downBuffer, 0, bytesSize);
@@ -215,6 +205,15 @@ namespace SDKNetworkFileManager
                 if (_needToLongTimeRecieve)
                     StartReceiving();
             }
+        }
+
+        private string GetStringFromNetPackage(NetworkStream networkStream)
+        {
+            byte[] downBuffer = new byte[_countOfBytesInBuffer];
+            int bytesSize = networkStream.Read(downBuffer, 0, _countOfBytesInBuffer);
+            string str = Encoding.UTF8.GetString(downBuffer, 0, bytesSize);
+            str = str.Substring(0, str.IndexOf('\n'));
+            return str;
         }
     }
 
@@ -319,16 +318,10 @@ namespace SDKNetworkFileManager
                 FileInfo fInfo = new FileInfo(pathToFile);
 
                 // передаем по сети название файла в виде массива байтов (1 пакет)
-                byte[] byteFileName = System.Text.Encoding.UTF8.GetBytes((fInfo.Name + "\n").ToCharArray());
-                byte[] toWriteName = new byte[_countOfBytesInBuffer];
-                byteFileName.CopyTo(toWriteName, 0);
-                networkStream.Write(toWriteName, 0, _countOfBytesInBuffer);
+                SendStringInNetPackage(networkStream, fInfo.Name);
 
                 // передаем по сети размер файла в байтах в виде массива байтов (2 пакет)
-                byte[] byteFileSize = System.Text.Encoding.UTF8.GetBytes((fInfo.Length.ToString() + "\n").ToCharArray());
-                byte[] toWriteSize = new byte[_countOfBytesInBuffer];
-                byteFileSize.CopyTo(toWriteSize, 0);
-                networkStream.Write(toWriteSize, 0, _countOfBytesInBuffer);
+                SendStringInNetPackage(networkStream, fInfo.Length.ToString());
 
                 UpdateStatus("Sending the file '" + fInfo.Name + "'");
 
@@ -362,7 +355,6 @@ namespace SDKNetworkFileManager
                 if (_tcpClient != null)
                 {
                     _tcpClient.Close();
-                    _tcpClient = null;
                 }
                 if (networkStream != null)
                 {
@@ -385,6 +377,14 @@ namespace SDKNetworkFileManager
             }
         }
 
+        private void SendStringInNetPackage(NetworkStream networkStream, string str)
+        {
+            byte[] byteFileName = System.Text.Encoding.UTF8.GetBytes((str + "\n").ToCharArray());
+            byte[] toWriteName = new byte[_countOfBytesInBuffer];
+            byteFileName.CopyTo(toWriteName, 0);
+            networkStream.Write(toWriteName, 0, _countOfBytesInBuffer);
+        }
+
         public static void ReleaseTesting()
         {
             string[] names = 
@@ -398,9 +398,15 @@ namespace SDKNetworkFileManager
                 "Thru.jpg",
                 "Новый текстовый документ (Новый).txt"
             };
+            // for my pc
             NetworkSender ns = new NetworkSender("172.16.1.24");
             foreach (string next in names)
                 ns.SendFile("/test/" + next);
+
+            // for server
+            //NetworkSender ns = new NetworkSender("172.16.16.8");
+            //foreach (string next in names)
+            //    ns.SendFile("/ais/test_data/" + next);
         }
     }
 
