@@ -142,7 +142,18 @@ namespace SDKNetworkFileManager
                 networkStream = tcpClient.GetStream();
                 UpdateStatus("The server has received the stream");
 
-                fileStream = LoadFileFromNet(networkStream);
+                string command = GetCommandFromNetPackage(networkStream);
+                string[] metaInfo = GetMetaInfoFromNetPackage(networkStream);
+
+                switch (command)
+                {
+                    case "command_load_file":
+                        fileStream = LoadFileFromNet(networkStream, metaInfo[0], metaInfo[1]);
+                        break;
+                    case "command_file_request":
+                        SendFileToClient(metaInfo[0], metaInfo[1]);
+                        break;
+                }
             }
             catch (Exception ex)
             {
@@ -190,16 +201,24 @@ namespace SDKNetworkFileManager
             }
         }
 
-        private FileStream LoadFileFromNet(NetworkStream networkStream)
+        private void SendFileToClient(string fileName, string clientIP)
         {
-            // получаем имя получаемого файла с расширением
-            string fileName = GetStringFromNetPackage(networkStream);
+            string fileStorageFolder = "/ais/data/";
 
+            // если что не так с IP здесь будет ошибка
+            IPAddress temp = IPAddress.Parse(clientIP);
+
+            NetworkSender ns = new NetworkSender(clientIP);
+            ns.SendFile(fileStorageFolder + fileName);
+        }
+
+        private FileStream LoadFileFromNet(NetworkStream networkStream, string fileName, string strSize)
+        {
             // зная имя файла создаем его и готовим для записи содержимого
             FileStream fileStream = new FileStream(_pathToSaveFolder + fileName, FileMode.Create);
 
             // получаем размер файла
-            long fileSize = Convert.ToInt64(GetStringFromNetPackage(networkStream));
+            long fileSize = Convert.ToInt64(strSize);
 
             UpdateStatus("Receiving file '" + fileName + "' (" + fileSize + " bytes)");
 
@@ -213,12 +232,23 @@ namespace SDKNetworkFileManager
             return fileStream;
         }
 
-        private string GetStringFromNetPackage(NetworkStream networkStream)
+        private string[] GetMetaInfoFromNetPackage(NetworkStream networkStream)
         {
             byte[] downBuffer = new byte[_countOfBytesInBuffer];
-            int bytesSize = networkStream.Read(downBuffer, 0, _countOfBytesInBuffer);
-            string str = Encoding.UTF8.GetString(downBuffer, 0, bytesSize);
+            networkStream.Read(downBuffer, 0, _countOfBytesInBuffer);
+            string str = Encoding.UTF8.GetString(downBuffer, 0, _countOfBytesInBuffer);
             str = str.Substring(0, str.IndexOf('\n'));
+
+            return str.Split(new char[] {'\t'});
+        }
+
+        private string GetCommandFromNetPackage(NetworkStream networkStream)
+        {
+            byte[] downBuffer = new byte[_countOfBytesInBuffer];
+            networkStream.Read(downBuffer, 0, _countOfBytesInBuffer);
+            string str = Encoding.UTF8.GetString(downBuffer, 0, _countOfBytesInBuffer);
+            str = str.Substring(0, str.IndexOf('\n'));
+
             return str;
         }
     }
@@ -297,6 +327,81 @@ namespace SDKNetworkFileManager
         }
 
         /// <summary>
+        /// Возвращает IP адрес данного компьютера
+        /// </summary>
+        /// <returns></returns>
+        private string GetCurrentMachineIP()
+        {
+            String host = System.Net.Dns.GetHostName();
+            System.Net.IPAddress ip = System.Net.Dns.GetHostByName(host).AddressList[0];
+            return ip.ToString();
+        }
+
+        public void SendRequestToGiveFile(string nameOfFile)
+        {
+            ConnectToServer();
+            // если не инициализирован клиент, дальнейшая работа бессмысленна
+            if (_tcpClient == null)
+                return;
+
+            bool isError = false;
+            NetworkStream networkStream = null;
+            FileStream fileStream = null;
+            try
+            {
+                // получаем сетевой поток для записи в него отправляемого файла
+                networkStream = _tcpClient.GetStream();
+                // передаем по сети команду c запросом выслать нам файл (1 пакет)
+                SendStringInNetPackage(networkStream, "command_file_request");
+                // передаем по сети название файла и собственное IP 
+                SendStringInNetPackage(networkStream, nameOfFile + "\t" + GetCurrentMachineIP());
+            }
+            catch (Exception ex)
+            {
+                UpdateStatus("Erorr!!!");
+                UpdateStatus(ex.Message);
+                isError = true;
+            }
+            finally
+            {
+                if (!isError)
+                {
+                    UpdateStatus("Request sent");
+                }
+                else
+                {
+                    UpdateStatus("Request does NOT sent");
+                }
+                isError = false;
+
+                // безопасно завершаем соединение
+                // безопасно завершаем соединение
+                if (_tcpClient != null)
+                {
+                    _tcpClient.Close();
+                }
+                if (networkStream != null)
+                {
+                    networkStream.Flush();
+                    networkStream.Close();
+                }
+                if (fileStream != null)
+                {
+                    fileStream.Flush();
+                    fileStream.Close();
+                }
+                UpdateStatus("Streams and connections are now closed \n");
+
+                // записываем лог если это нужно
+                if (_pathToLogFile != null)
+                {
+                    File.AppendAllLines(_pathToLogFile, _logMas);
+                    _logMas.Clear();
+                }
+            }
+        }
+
+        /// <summary>
         /// Отправляет файл по сети выбранному клиенту
         /// </summary>
         /// <param name="pathToFile">Путь к файлу который необходимо отправить</param>
@@ -320,22 +425,23 @@ namespace SDKNetworkFileManager
                 // объект для получения информации о передаваемом файле
                 FileInfo fInfo = new FileInfo(pathToFile);
 
-                // передаем управляющий пакет
-                // SendStringInNetPackage(networkStream, "command: load file");
+                // передаем команду серверу
+                SendStringInNetPackage(networkStream, "command_load_file");
 
-                // передаем по сети название файла в виде массива байтов
-                SendStringInNetPackage(networkStream, fInfo.Name);
-
-                // передаем по сети размер файла в байтах в виде массива байтов
-                SendStringInNetPackage(networkStream, fInfo.Length.ToString());
+                // передаем мета-данные файла (имя и размер)
+                string metaInfo = fInfo.Name + "\t" + fInfo.Length.ToString();
+                SendStringInNetPackage(networkStream, metaInfo);
 
                 UpdateStatus("Sending the file '" + fInfo.Name + "'");
 
                 // открываем отправляемый файл
                 fileStream = new FileStream(pathToFile, FileMode.Open, FileAccess.Read);
-                // передаем содержание файла по сети в виде последовательности сетевых пакетов
+
+                // готовим буферный массив
                 int bytesSize = 0;
                 byte[] downBuffer = new byte[_countOfBytesInBuffer];
+
+                // передаем содержание файла по сети в виде последовательности сетевых пакетов
                 while ((bytesSize = fileStream.Read(downBuffer, 0, _countOfBytesInBuffer)) > 0)
                 {
                     networkStream.Write(downBuffer, 0, bytesSize);
@@ -387,7 +493,7 @@ namespace SDKNetworkFileManager
 
         private void SendStringInNetPackage(NetworkStream networkStream, string str)
         {
-            byte[] byteFileName = System.Text.Encoding.UTF8.GetBytes((str + "\n").ToCharArray());
+            byte[] byteFileName = Encoding.UTF8.GetBytes( (str + "\n").ToCharArray() );
             byte[] toWriteName = new byte[_countOfBytesInBuffer];
             byteFileName.CopyTo(toWriteName, 0);
             networkStream.Write(toWriteName, 0, _countOfBytesInBuffer);
@@ -416,6 +522,13 @@ namespace SDKNetworkFileManager
             //foreach (string next in names)
             //    ns.SendFile("/ais/test_data/" + next);
         }
+
+        public static void ReleaseRequestTesting()
+        {
+            NetworkSender ns = new NetworkSender("172.16.1.24");
+            ns.SendRequestToGiveFile("Thru.jpg");
+            ns.SendRequestToGiveFile("Microsoft ADO NET Entity Framework Step by Step 2013.pdf");
+        }
     }
 
     class Program
@@ -428,10 +541,14 @@ namespace SDKNetworkFileManager
 
         static void Main(string[] args)
         {
-             NetworkSender.ReleaseTesting();
-             
-            //Thread backListen = new Thread(StartListen);
-            //backListen.Start();
+           // NetworkSender.ReleaseTesting();
+            
+            Thread backListen = new Thread(StartListen);
+            backListen.Start();
+
+            NetworkSender.ReleaseRequestTesting();
+
+          //  StartListen();
         }
     }
 }
