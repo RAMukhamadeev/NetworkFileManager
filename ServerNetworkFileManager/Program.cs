@@ -50,6 +50,7 @@ namespace SDKNetworkFileManager
         private string _port = "3333";
         // количество байт в одном сетевом пакете
         private int _countOfBytesInBuffer = 1024;
+
         // максимальное количество ожидающих клиентов
         private int _countOfClient = 100;
         // нужно ли писать лог в консоль
@@ -74,6 +75,32 @@ namespace SDKNetworkFileManager
         /// </summary>
         public NetworkReciever()
         {
+        }
+
+        private static void StartContListen()
+        {
+            NetworkReciever nr = new NetworkReciever();
+            nr.NeedToLongTimeRecieve = true;
+            nr.StartReceiving();
+        }
+
+        private static void StartSingleListen()
+        {
+            NetworkReciever nr = new NetworkReciever();
+            nr.NeedToLongTimeRecieve = false;
+            nr.StartReceiving();
+        }
+
+        public static void StartContReceiving()
+        {
+            Thread forListen = new Thread(StartContListen);
+            forListen.Start();
+        }
+
+        public static void StartSingleReceiving()
+        {
+            Thread forListen = new Thread(StartSingleListen);
+            forListen.Start();
         }
 
         /// <summary>
@@ -110,6 +137,18 @@ namespace SDKNetworkFileManager
             _logMas.Add(statusMessage);
         }
 
+        ///// <summary>
+        ///// Останавливает прослушивание
+        ///// </summary>
+        //public void StopReceiving()
+        //{
+        //    if (tcpListener != null)
+        //    {
+        //        tcpListener.Stop();
+        //        tcpListener = null;
+        //    }
+        //}
+
         /// <summary>
         /// Запускает прослушивание
         /// </summary>
@@ -123,24 +162,26 @@ namespace SDKNetworkFileManager
 
             try
             {
-                IPAddress ipLocal = IPAddress.Parse(myIP);
                 // если сервер для прослушивания не инициализирован, то инициализируем
                 if (tcpListener == null)
                 {
-                    tcpListener = new TcpListener(ipLocal, Int32.Parse(_port));
+                    tcpListener = new TcpListener(IPAddress.Parse(myIP), Int32.Parse(_port));
                 }
 
                 UpdateStatus("Starting the server...");
                 tcpListener.Start(_countOfClient);
 
                 UpdateStatus("The server has started");
-                UpdateStatus("Please connect the client to " + ipLocal.ToString());
+                UpdateStatus("Please connect the client to " + myIP);
 
                 tcpClient = tcpListener.AcceptTcpClient();
                 UpdateStatus("The server has accepted the client");
 
                 networkStream = tcpClient.GetStream();
                 UpdateStatus("The server has received the stream");
+
+                // подождем пока придут пакеты (даем фору клиенту)
+                Thread.Sleep(300);
 
                 string command = GetCommandFromNetPackage(networkStream);
                 string[] metaInfo = GetMetaInfoFromNetPackage(networkStream);
@@ -234,9 +275,9 @@ namespace SDKNetworkFileManager
 
         private string[] GetMetaInfoFromNetPackage(NetworkStream networkStream)
         {
-            byte[] downBuffer = new byte[_countOfBytesInBuffer];
-            networkStream.Read(downBuffer, 0, _countOfBytesInBuffer);
-            string str = Encoding.UTF8.GetString(downBuffer, 0, _countOfBytesInBuffer);
+            byte[] downBuffer = new byte[_countOfBytesInBuffer * 2];
+            networkStream.Read(downBuffer, 0, _countOfBytesInBuffer * 2);
+            string str = Encoding.UTF8.GetString(downBuffer, 0, _countOfBytesInBuffer * 2);
             str = str.Substring(0, str.IndexOf('\n'));
 
             return str.Split(new char[] {'\t'});
@@ -244,9 +285,9 @@ namespace SDKNetworkFileManager
 
         private string GetCommandFromNetPackage(NetworkStream networkStream)
         {
-            byte[] downBuffer = new byte[_countOfBytesInBuffer];
-            networkStream.Read(downBuffer, 0, _countOfBytesInBuffer);
-            string str = Encoding.UTF8.GetString(downBuffer, 0, _countOfBytesInBuffer);
+            byte[] downBuffer = new byte[_countOfBytesInBuffer * 2];
+            networkStream.Read(downBuffer, 0, _countOfBytesInBuffer * 2);
+            string str = Encoding.UTF8.GetString(downBuffer, 0, _countOfBytesInBuffer * 2);
             str = str.Substring(0, str.IndexOf('\n'));
 
             return str;
@@ -494,9 +535,9 @@ namespace SDKNetworkFileManager
         private void SendStringInNetPackage(NetworkStream networkStream, string str)
         {
             byte[] byteFileName = Encoding.UTF8.GetBytes( (str + "\n").ToCharArray() );
-            byte[] toWriteName = new byte[_countOfBytesInBuffer];
+            byte[] toWriteName = new byte[_countOfBytesInBuffer * 2];
             byteFileName.CopyTo(toWriteName, 0);
-            networkStream.Write(toWriteName, 0, _countOfBytesInBuffer);
+            networkStream.Write(toWriteName, 0, _countOfBytesInBuffer * 2);
         }
 
         public static void ReleaseTesting()
@@ -507,7 +548,7 @@ namespace SDKNetworkFileManager
                 "1L.jpg",
                 "cvoverview-110607125849-phpapp02.pdf",
                 "OUT__100__percent.png",
-              //  "SW_DVD5_Office_Professional_Plus_2013_W32_Russian_MLF_X18-55179.ISO",
+           //     "SW_DVD5_Office_Professional_Plus_2013_W32_Russian_MLF_X18-55179.ISO",
                 "procc.bmp",
                 "Thru.jpg",
                 "Новый текстовый документ (Новый).txt"
@@ -528,27 +569,24 @@ namespace SDKNetworkFileManager
             NetworkSender ns = new NetworkSender("172.16.1.24");
             ns.SendRequestToGiveFile("Thru.jpg");
             ns.SendRequestToGiveFile("Microsoft ADO NET Entity Framework Step by Step 2013.pdf");
+            ns.SendRequestToGiveFile("1L.jpg");
+            ns.SendRequestToGiveFile("cvoverview-110607125849-phpapp02.pdf");
+            ns.SendRequestToGiveFile("OUT__100__percent.png");
+            ns.SendRequestToGiveFile("procc.bmp");
+            ns.SendRequestToGiveFile("Thru.jpg");
+          //  ns.SendRequestToGiveFile("SW_DVD5_Office_Professional_Plus_2013_W32_Russian_MLF_X18-55179.ISO");
+            ns.SendRequestToGiveFile("Новый текстовый документ (Новый).txt");
         }
     }
 
     class Program
     {
-        public static void StartListen()
-        {
-            NetworkReciever nr = new NetworkReciever();
-            nr.StartReceiving();
-        }
-
         static void Main(string[] args)
         {
            // NetworkSender.ReleaseTesting();
-            
-            Thread backListen = new Thread(StartListen);
-            backListen.Start();
 
+            NetworkReciever.StartContReceiving();
             NetworkSender.ReleaseRequestTesting();
-
-          //  StartListen();
         }
     }
 }
