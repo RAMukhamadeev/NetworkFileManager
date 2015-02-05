@@ -16,23 +16,28 @@ namespace SDKNetworkFileManager
     /// </summary>
     class NetworkReciever
     {
-        TcpListener tcpListener = null;
+        private TcpListener _tcpListener = null;
 
         // данные для хранения логов
         private string _pathToLogFile = null;
+        public string PathToLogFile
+        {
+            get { return _pathToLogFile; }
+            set { _pathToLogFile = value; }
+        }
         private List<string> _logMas = new List<string>();
 
-        // насильно устанавливаемый IP
+        // насильно устанавливаемый IP (если установлен не null, то выбирается не автоматически)
         private string _forceMyIP = null;
-        string ForceMyIP
+        public string ForceMyIP
         {
             get { return _forceMyIP; }
             set { _forceMyIP = value; }
         }
 
-        // папка куда будут сохраняться полученные по сети файлы
-        private string _pathToSaveFolder = "/";
-        string PathToSaveFolder
+        // папка куда будут сохраняться полученные по сети файлы (по умолчанию - корень)
+        private string _pathToSaveFolder = "";
+        public string PathToSaveFolder
         {
             get { return _pathToSaveFolder; }
             set { _pathToSaveFolder = value; }
@@ -40,7 +45,7 @@ namespace SDKNetworkFileManager
 
         // если true то после получения файла от клиента запуститься новое прослушивание
         bool _needToLongTimeRecieve = true;
-        bool NeedToLongTimeRecieve
+        public bool NeedToLongTimeRecieve
         {
             get { return _needToLongTimeRecieve; }
             set { _needToLongTimeRecieve = value; }
@@ -48,26 +53,49 @@ namespace SDKNetworkFileManager
 
         // порт по которому будет вестись прослушивание
         private string _port = "3333";
+        public string Port 
+        {
+            get { return _port; }
+            set {_port = value; }
+        }
+
         // количество байт в одном сетевом пакете
         private int _countOfBytesInBuffer = 1024;
+        public int CountOfBytesInBuffer
+        {
+            get { return _countOfBytesInBuffer; }
+            set { _countOfBytesInBuffer = value; }
+        }
 
         // максимальное количество ожидающих клиентов
         private int _countOfClient = 100;
+        public int CountOFClient
+        {
+            get { return _countOfClient; }
+            set { _countOfClient = value; }
+        }
+
         // нужно ли писать лог в консоль
-        private bool _needToWriteToConsole = true;
-        bool NeedToWriteToConsole
+        private bool _needToWriteToConsole = false;
+        public bool NeedToWriteToConsole
         {
             get { return _needToWriteToConsole; }
             set { _needToWriteToConsole = value; }
         }
 
-        /// <summary>
-        /// Инициализирует объект для приема сетевых файлов
-        /// </summary>
-        /// <param name="pathToLogFile">Путь где будет храниться файл с логом</param>
-        public NetworkReciever(string pathToLogFile)
+        // нужно ли писать лог в файл
+        private bool _needToWriteLog = true;
+        public bool NeedToWriteLog
         {
-            _pathToLogFile = pathToLogFile;
+            get { return _needToWriteLog; }
+            set { _needToWriteLog = value; }
+        }
+
+        private string _fileStorageFolder = "/ais/data";
+        public string FileStorageData
+        {
+            get { return _fileStorageFolder; }
+            set { _fileStorageFolder = value; }
         }
 
         /// <summary>
@@ -75,32 +103,6 @@ namespace SDKNetworkFileManager
         /// </summary>
         public NetworkReciever()
         {
-        }
-
-        private static void StartContListen()
-        {
-            NetworkReciever nr = new NetworkReciever();
-            nr.NeedToLongTimeRecieve = true;
-            nr.StartReceiving();
-        }
-
-        private static void StartSingleListen()
-        {
-            NetworkReciever nr = new NetworkReciever();
-            nr.NeedToLongTimeRecieve = false;
-            nr.StartReceiving();
-        }
-
-        public static void StartContReceiving()
-        {
-            Thread forListen = new Thread(StartContListen);
-            forListen.Start();
-        }
-
-        public static void StartSingleReceiving()
-        {
-            Thread forListen = new Thread(StartSingleListen);
-            forListen.Start();
         }
 
         /// <summary>
@@ -137,24 +139,11 @@ namespace SDKNetworkFileManager
             _logMas.Add(statusMessage);
         }
 
-        ///// <summary>
-        ///// Останавливает прослушивание
-        ///// </summary>
-        //public void StopReceiving()
-        //{
-        //    if (tcpListener != null)
-        //    {
-        //        tcpListener.Stop();
-        //        tcpListener = null;
-        //    }
-        //}
-
         /// <summary>
         /// Запускает прослушивание
         /// </summary>
         public void StartReceiving()
         {
-            FileStream fileStream = null;
             NetworkStream networkStream = null;
             TcpClient tcpClient = null;
             bool isError = false;
@@ -163,24 +152,22 @@ namespace SDKNetworkFileManager
             try
             {
                 // если сервер для прослушивания не инициализирован, то инициализируем
-                if (tcpListener == null)
-                {
-                    tcpListener = new TcpListener(IPAddress.Parse(myIP), Int32.Parse(_port));
-                }
+                if (_tcpListener == null)
+                    _tcpListener = new TcpListener(IPAddress.Parse(myIP), Int32.Parse(_port));
 
                 UpdateStatus("Starting the server...");
-                tcpListener.Start(_countOfClient);
+                _tcpListener.Start(_countOfClient);
 
                 UpdateStatus("The server has started");
                 UpdateStatus("Please connect the client to " + myIP);
 
-                tcpClient = tcpListener.AcceptTcpClient();
+                tcpClient = _tcpListener.AcceptTcpClient();
                 UpdateStatus("The server has accepted the client");
 
                 networkStream = tcpClient.GetStream();
                 UpdateStatus("The server has received the stream");
 
-                // подождем пока придут пакеты (даем фору клиенту)
+                // подождем пока придут пакеты (даем фору по времени клиенту)
                 Thread.Sleep(300);
 
                 string command = GetCommandFromNetPackage(networkStream);
@@ -189,7 +176,7 @@ namespace SDKNetworkFileManager
                 switch (command)
                 {
                     case "command_load_file":
-                        fileStream = LoadFileFromNet(networkStream, metaInfo[0], metaInfo[1]);
+                        LoadFileFromNet(networkStream, metaInfo[0], metaInfo[1]);
                         break;
                     case "command_file_request":
                         SendFileToClient(metaInfo[0], metaInfo[1]);
@@ -205,36 +192,16 @@ namespace SDKNetworkFileManager
             finally
             {
                 if (!isError)
-                {
                     UpdateStatus("The file was received");
-                }
                 else
                     UpdateStatus("The file was NOT received");
-                isError = false;
 
                 // безопасно закрываем соединение
-                if (fileStream != null)
-                {
-                    fileStream.Flush();
-                    fileStream.Close();
-                }
-                if (networkStream != null)
-                {
-                    networkStream.Flush();
-                    networkStream.Close();
-                }
-                if (tcpClient != null)
-                {
-                    tcpClient.Close();
-                }
+                CloseConnection(networkStream, tcpClient);
                 UpdateStatus("Streams are now closed \n");
-
-                // записываем лог и чистим промежуточный лист
-                if (_pathToLogFile != null)
-                {
-                    File.AppendAllLines(_pathToLogFile, _logMas);
-                    _logMas.Clear();
-                }
+                // записываем лог если есть путь и разрешение для записи и чистим промежуточный лист
+                if (_pathToLogFile != null && _needToWriteLog)
+                    SaveLog();
 
                 // заново запускаем прослушивание если необходимо
                 if (_needToLongTimeRecieve)
@@ -242,35 +209,61 @@ namespace SDKNetworkFileManager
             }
         }
 
-        private void SendFileToClient(string fileName, string clientIP)
+        private void SaveLog()
         {
-            string fileStorageFolder = "/ais/data/";
-
-            // если что не так с IP здесь будет ошибка
-            IPAddress temp = IPAddress.Parse(clientIP);
-
-            NetworkSender ns = new NetworkSender(clientIP);
-            ns.SendFile(fileStorageFolder + fileName);
+            File.WriteAllLines(_pathToLogFile, _logMas);
+            _logMas.Clear();
         }
 
-        private FileStream LoadFileFromNet(NetworkStream networkStream, string fileName, string strSize)
+        private static void CloseConnection(NetworkStream networkStream, TcpClient tcpClient)
         {
-            // зная имя файла создаем его и готовим для записи содержимого
-            FileStream fileStream = new FileStream(_pathToSaveFolder + fileName, FileMode.Create);
-
-            // получаем размер файла
-            long fileSize = Convert.ToInt64(strSize);
-
-            UpdateStatus("Receiving file '" + fileName + "' (" + fileSize + " bytes)");
-
-            // считываем содержимое файла по пакетам и записываем его в локальный файл
-            int bytesSize;
-            byte[] downBuffer = new byte[_countOfBytesInBuffer];
-            while ((bytesSize = networkStream.Read(downBuffer, 0, _countOfBytesInBuffer)) > 0)
+            if (networkStream != null)
             {
-                fileStream.Write(downBuffer, 0, bytesSize);
+                networkStream.Flush();
+                networkStream.Close();
             }
-            return fileStream;
+            if (tcpClient != null)
+            {
+                tcpClient.Close();
+            }
+        }
+
+        private void SendFileToClient(string fileName, string clientIP)
+        {
+            NetworkSender ns = new NetworkSender(clientIP);
+            ns.SendFile(_fileStorageFolder + "/" + fileName);
+        }
+
+        private void LoadFileFromNet(NetworkStream networkStream, string fileName, string strSize)
+        {
+            FileStream fileStream = null;
+            try
+            {
+                // получаем размер файла
+                long fileSize = Convert.ToInt64(strSize);
+                UpdateStatus("Receiving file '" + fileName + "' (" + fileSize + " bytes)");
+                // готовим буфер для чтения
+                int bytesSize;
+                byte[] downBuffer = new byte[_countOfBytesInBuffer];
+                // зная имя файла создаем его и готовим для записи содержимого
+                fileStream = new FileStream(_pathToSaveFolder + "/" + fileName, FileMode.Create);
+                // считываем содержимое файла по пакетам и записываем его в локальный файл
+                while ((bytesSize = networkStream.Read(downBuffer, 0, _countOfBytesInBuffer)) > 0)
+                    fileStream.Write(downBuffer, 0, bytesSize);
+            }
+            catch (Exception ex)
+            {
+                // пропускаем исключение дальше
+                throw ex;
+            }
+            finally
+            {
+                if (fileStream != null)
+                {
+                    fileStream.Flush();
+                    fileStream.Close();
+                }
+            }
         }
 
         private string[] GetMetaInfoFromNetPackage(NetworkStream networkStream)
@@ -303,32 +296,47 @@ namespace SDKNetworkFileManager
         private TcpClient _tcpClient = null;
 
         // данные для хранения логов
-        private string _pathToLogFile = null;
         List<string> _logMas = new List<string>();
+        private string _pathToLogFile = null;
+        public string PathToLogFile
+        {
+            get { return _pathToLogFile; }
+            set { _pathToLogFile = value; }
+        }
+
+        bool _needToWriteLog = true;
+        public bool NeedToWriteLog
+        {
+            get { return _needToWriteLog; }
+            set { _needToWriteLog = value; }
+        }
 
         // количество байт в одном сетевом пакете
         private int _countOfBytesInBuffer = 1024;
+        public int CountOfBytesInBuffer
+        {
+            get { return _countOfBytesInBuffer;  }
+            set { _countOfBytesInBuffer = value; }
+        }
+
         // порт клиента, по которому он ведет прослушивание
         private int _clientPort = 3333;
-        private string _clientIP = null;
+        public int ClientPort
+        {
+            get { return _clientPort; }
+            set { _clientPort = value; }
+        }
 
         // нужно ли писать лог в консоль
-        private bool _needToWriteToConsole = true;
-        bool NeedToWriteToConsole
+        private bool _needToWriteToConsole = false;
+        public bool NeedToWriteToConsole
         {
             get { return _needToWriteToConsole; }
             set { _needToWriteToConsole = value; }
         }
 
-        /// <summary>
-        /// Инициализирует объект для отправки файлов по сети
-        /// </summary>
-        /// <param name="pathToLogFile">Путь по которому будет сохранем файл с логами</param>
-        public NetworkSender(string pathToLogFile, string clientIP)
-        {
-            _pathToLogFile = pathToLogFile;
-            _clientIP = clientIP;
-        }
+        // IP адрес клиента
+        private string _clientIP = null;
 
         /// <summary>
         /// Инициализирует объект для отправки файлов по сети
@@ -342,17 +350,19 @@ namespace SDKNetworkFileManager
         /// Устанавливает соединение с сервером
         /// </summary>
         /// <param name="clientIP">IP адрес клиента, которому посылаем файл</param>
-        private void ConnectToServer()
+        private bool ConnectToServer()
         {
             _tcpClient = new TcpClient();
             try
             {
                 _tcpClient.Connect(_clientIP, _clientPort);
                 UpdateStatus("Successfully connected to server");
+                return true;
             }
             catch (Exception exMessage)
             {
                 UpdateStatus(exMessage.Message);
+                return false;
             }
         }
 
@@ -380,14 +390,12 @@ namespace SDKNetworkFileManager
 
         public void SendRequestToGiveFile(string nameOfFile)
         {
-            ConnectToServer();
-            // если не инициализирован клиент, дальнейшая работа бессмысленна
-            if (_tcpClient == null)
+            // если не удалось подключиться - выходим
+            if ( !ConnectToServer() )
                 return;
 
             bool isError = false;
             NetworkStream networkStream = null;
-            FileStream fileStream = null;
             try
             {
                 // получаем сетевой поток для записи в него отправляемого файла
@@ -406,40 +414,23 @@ namespace SDKNetworkFileManager
             finally
             {
                 if (!isError)
-                {
                     UpdateStatus("Request sent");
-                }
                 else
-                {
                     UpdateStatus("Request does NOT sent");
-                }
-                isError = false;
 
                 // безопасно завершаем соединение
-                // безопасно завершаем соединение
-                if (_tcpClient != null)
-                {
-                    _tcpClient.Close();
-                }
-                if (networkStream != null)
-                {
-                    networkStream.Flush();
-                    networkStream.Close();
-                }
-                if (fileStream != null)
-                {
-                    fileStream.Flush();
-                    fileStream.Close();
-                }
+                CloseConnection(networkStream);
                 UpdateStatus("Streams and connections are now closed \n");
-
                 // записываем лог если это нужно
-                if (_pathToLogFile != null)
-                {
-                    File.AppendAllLines(_pathToLogFile, _logMas);
-                    _logMas.Clear();
-                }
+                if (_pathToLogFile != null && _needToWriteLog)
+                    SaveLogFile();
             }
+        }
+
+        private void SaveLogFile()
+        {
+            File.WriteAllLines(_pathToLogFile, _logMas);
+            _logMas.Clear();
         }
 
         /// <summary>
@@ -449,9 +440,8 @@ namespace SDKNetworkFileManager
         /// <param name="clientIP">IP адрес клиента, который ждет получения файла</param>
         public void SendFile(string pathToFile)
         {
-            ConnectToServer();
-            // если не инициализирован клиент, дальнейшая работа бессмысленна
-            if (_tcpClient == null)
+            // если не удалось подключиться - выходим
+            if ( !ConnectToServer() )
                 return;
 
             bool isError = false;
@@ -465,28 +455,21 @@ namespace SDKNetworkFileManager
 
                 // объект для получения информации о передаваемом файле
                 FileInfo fInfo = new FileInfo(pathToFile);
+                // открываем отправляемый файл
+                fileStream = new FileStream(pathToFile, FileMode.Open, FileAccess.Read);
 
                 // передаем команду серверу
                 SendStringInNetPackage(networkStream, "command_load_file");
-
                 // передаем мета-данные файла (имя и размер)
-                string metaInfo = fInfo.Name + "\t" + fInfo.Length.ToString();
-                SendStringInNetPackage(networkStream, metaInfo);
-
-                UpdateStatus("Sending the file '" + fInfo.Name + "'");
-
-                // открываем отправляемый файл
-                fileStream = new FileStream(pathToFile, FileMode.Open, FileAccess.Read);
+                SendStringInNetPackage(networkStream, fInfo.Name + "\t" + fInfo.Length.ToString());
 
                 // готовим буферный массив
                 int bytesSize = 0;
                 byte[] downBuffer = new byte[_countOfBytesInBuffer];
-
                 // передаем содержание файла по сети в виде последовательности сетевых пакетов
+                UpdateStatus("Sending the file '" + fInfo.Name + "'");
                 while ((bytesSize = fileStream.Read(downBuffer, 0, _countOfBytesInBuffer)) > 0)
-                {
                     networkStream.Write(downBuffer, 0, bytesSize);
-                }
             }
             catch (Exception ex)
             {
@@ -497,38 +480,40 @@ namespace SDKNetworkFileManager
             finally
             {
                 if (!isError)
-                {
                     UpdateStatus("File sent");
-                }
                 else
-                {
                     UpdateStatus("File does NOT sent");
-                }
-                isError = false;
 
                 // безопасно завершаем соединение
-                if (_tcpClient != null)
-                {
-                    _tcpClient.Close();
-                }
-                if (networkStream != null)
-                {
-                    networkStream.Flush();
-                    networkStream.Close();
-                }
-                if (fileStream != null)
-                {
-                    fileStream.Flush();
-                    fileStream.Close();
-                }
+                CloseConnection(networkStream);
+                // закрываем файл
+                CloseFile(fileStream);
                 UpdateStatus("Streams and connections are now closed \n");
-
                 // записываем лог если это нужно
-                if (_pathToLogFile != null)
-                {
-                    File.AppendAllLines(_pathToLogFile, _logMas);
-                    _logMas.Clear();
-                }
+                if (_pathToLogFile != null && _needToWriteLog)
+                    SaveLogFile();
+            }
+        }
+
+        private static void CloseFile(FileStream fileStream)
+        {
+            if (fileStream != null)
+            {
+                fileStream.Flush();
+                fileStream.Close();
+            }
+        }
+
+        private void CloseConnection(NetworkStream networkStream)
+        {
+            if (_tcpClient != null)
+            {
+                _tcpClient.Close();
+            }
+            if (networkStream != null)
+            {
+                networkStream.Flush();
+                networkStream.Close();
             }
         }
 
@@ -579,14 +564,111 @@ namespace SDKNetworkFileManager
         }
     }
 
+    public static class Network
+    {
+        private static string
+            _serverIP = "172.16.1.24",
+            _pathToSaveFolder = null,
+            _pathToLogFileRec = null,
+            _pathToLogFileSender = null;
+        public static string ServerIP
+        {
+            get { return _serverIP; }
+            set { _serverIP = value; }
+        }
+
+        public static string PathToSaveFolder
+        {
+            get { return _pathToSaveFolder; }
+            set { _pathToSaveFolder = value; }
+        }
+
+        public static string PathToLogFileRec
+        {
+            get { return _pathToLogFileRec; }
+            set { _pathToLogFileRec = value; }
+        }
+
+        public static string PathToLogFileSender
+        {
+            get { return _pathToLogFileSender; }
+            set { _pathToLogFileSender = value; }
+        }
+
+        private static void StartContListen()
+        {
+            NetworkReciever nr = new NetworkReciever();
+            nr.NeedToLongTimeRecieve = true;
+            if (_pathToSaveFolder != null)
+                nr.PathToSaveFolder = _pathToSaveFolder;
+            if (_pathToLogFileRec != null)
+                nr.PathToLogFile = _pathToLogFileRec;
+
+            nr.StartReceiving();
+        }
+
+        private static void StartSingleListen()
+        {
+            NetworkReciever nr = new NetworkReciever();
+            nr.NeedToLongTimeRecieve = false;
+            if (_pathToSaveFolder != null)
+                nr.PathToSaveFolder = _pathToSaveFolder;
+            if (_pathToLogFileRec != null)
+                nr.PathToLogFile = _pathToLogFileRec;
+            nr.StartReceiving();
+        }
+
+        public static Thread StartContReceiving()
+        {
+            Thread threadForListen = new Thread(StartContListen);
+            threadForListen.Start();
+
+            return threadForListen;
+        }
+
+        public static Thread StartSingleReceiving()
+        {
+            Thread threadForListen = new Thread(StartSingleListen);
+            threadForListen.Start();
+
+            return threadForListen;
+        }
+
+        public static void DownloadFile(string nameOfFile)
+        {
+            // включаем прослушивание чтобы скачать файл
+            Thread threadForListen = Network.StartSingleReceiving();
+
+            // отправляем запрос серверу
+            NetworkSender ns = new NetworkSender(_serverIP);
+            if (_pathToLogFileSender != null)
+                ns.PathToLogFile = _pathToLogFileSender;
+            ns.SendRequestToGiveFile(nameOfFile);
+
+            // ждем пока файл не скачается
+            threadForListen.Join();
+        }
+
+        public static void UploadFile(string pathToFile)
+        {
+             NetworkSender ns = new NetworkSender(_serverIP);
+             if (_pathToLogFileSender != null)
+                 ns.PathToLogFile = _pathToLogFileSender;
+             ns.SendFile(pathToFile);
+        }
+    }
+
     class Program
     {
         static void Main(string[] args)
         {
-           // NetworkSender.ReleaseTesting();
+            // настройки
+            Network.PathToSaveFolder = "C:/Users/User/Desktop/Новая папка";
+            Network.PathToLogFileSender = "C:/Users/User/Desktop/Новая папка/sender.txt";
+            Network.PathToLogFileRec = "C:/Users/User/Desktop/Новая папка/rec.txt";
 
-            NetworkReciever.StartContReceiving();
-            NetworkSender.ReleaseRequestTesting();
+            Network.UploadFile("C:/Users/User/Desktop/chip_197199_Att4.s2p");
+            Network.DownloadFile("chip_197199_Att4.s2p");
         }
     }
 }
