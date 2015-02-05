@@ -197,7 +197,7 @@ namespace SDKNetworkFileManager
                     UpdateStatus("The file was NOT received");
 
                 // безопасно закрываем соединение
-                CloseConnection(networkStream, tcpClient);
+                CloseCurrentConnection(networkStream, tcpClient);
                 UpdateStatus("Streams are now closed \n");
                 // записываем лог если есть путь и разрешение для записи и чистим промежуточный лист
                 if (_pathToLogFile != null && _needToWriteLog)
@@ -209,13 +209,19 @@ namespace SDKNetworkFileManager
             }
         }
 
+        public void StopReceiving()
+        {
+            _tcpListener.Stop();
+            _tcpListener = null;
+        }
+
         private void SaveLog()
         {
             File.WriteAllLines(_pathToLogFile, _logMas);
             _logMas.Clear();
         }
 
-        private static void CloseConnection(NetworkStream networkStream, TcpClient tcpClient)
+        private static void CloseCurrentConnection(NetworkStream networkStream, TcpClient tcpClient)
         {
             if (networkStream != null)
             {
@@ -616,6 +622,7 @@ namespace SDKNetworkFileManager
             if (_pathToLogFileRec != null)
                 nr.PathToLogFile = _pathToLogFileRec;
             nr.StartReceiving();
+            nr.StopReceiving();
         }
 
         public static Thread StartContReceiving()
@@ -636,10 +643,10 @@ namespace SDKNetworkFileManager
 
         public static void DownloadFile(string nameOfFile)
         {
-            // включаем прослушивание чтобы скачать файл
-            Thread threadForListen = Network.StartSingleReceiving();
+            // включаем фоновое прослушивание чтобы скачать файл
+            Thread threadForListen = StartSingleReceiving();
 
-            // отправляем запрос серверу
+            // отправляем запрос серверу с просьбой выслать нам файл
             NetworkSender ns = new NetworkSender(_serverIP);
             if (_pathToLogFileSender != null)
                 ns.PathToLogFile = _pathToLogFileSender;
@@ -667,8 +674,9 @@ namespace SDKNetworkFileManager
             Network.PathToLogFileSender = "C:/Users/User/Desktop/Новая папка/sender.txt";
             Network.PathToLogFileRec = "C:/Users/User/Desktop/Новая папка/rec.txt";
 
-            Network.UploadFile("C:/Users/User/Desktop/chip_197199_Att4.s2p");
-            Network.DownloadFile("chip_197199_Att4.s2p");
+
+         //   Network.UploadFile();
+         //   Network.DownloadFile();
         }
     }
 }
