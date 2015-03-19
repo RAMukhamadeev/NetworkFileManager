@@ -573,7 +573,7 @@ namespace SDKNetworkFileManager
     public static class Network
     {
         private static string
-            _serverIP = "172.16.1.24",
+            _serverIP = "192.168.1.4",
             _pathToSaveFolder = null,
             _pathToLogFileRec = null,
             _pathToLogFileSender = null;
@@ -609,6 +609,9 @@ namespace SDKNetworkFileManager
                 nr.PathToSaveFolder = _pathToSaveFolder;
             if (_pathToLogFileRec != null)
                 nr.PathToLogFile = _pathToLogFileRec;
+
+            nr.NeedToWriteToConsole = true;
+            nr.NeedToWriteLog = false;
 
             nr.StartReceiving();
         }
@@ -659,6 +662,10 @@ namespace SDKNetworkFileManager
         public static void UploadFile(string pathToFile)
         {
              NetworkSender ns = new NetworkSender(_serverIP);
+
+            ns.NeedToWriteToConsole = true;
+            ns.NeedToWriteLog = false;
+
              if (_pathToLogFileSender != null)
                  ns.PathToLogFile = _pathToLogFileSender;
              ns.SendFile(pathToFile);
@@ -669,14 +676,10 @@ namespace SDKNetworkFileManager
     {
         static void Main(string[] args)
         {
-            // настройки
-            Network.PathToSaveFolder = "C:/Users/User/Desktop/Новая папка";
-            Network.PathToLogFileSender = "C:/Users/User/Desktop/Новая папка/sender.txt";
-            Network.PathToLogFileRec = "C:/Users/User/Desktop/Новая папка/rec.txt";
+            Network.UploadFile("test.txt");
+            Console.ReadKey();
 
-
-         //   Network.UploadFile();
-         //   Network.DownloadFile();
+            //  Network.StartContReceiving();
         }
     }
 }
